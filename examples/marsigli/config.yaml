@@ -1,0 +1,37 @@
+# Init #
+project: 'egnn-model'
+job_type: 'train'
+# load_id: '16yq6tse'
+
+# Data #
+data_fields: 'uvt'
+train_cases: [700,900,1100,1300]
+test_case: 1000
+num_nodes: -1
+ts: [40,60]
+rollout: 1
+test_rollout: 20
+# sample_graph: 'cluster'
+# hops: 500
+rkm: [[.05,0,8], [.1,0,8], [.2,0,8]]
+
+# Model #
+num_levels: 1
+# cf: [8]
+# skip_mp_levels_all: [[0],[1],[1],[1]]
+latent_layers: 6
+latent_scalars: 128
+latent_vectors: 0
+model_type: 'equivariant'
+act: 'silu'
+solver: 'euler'
+sensitivity: 'autograd'
+
+# Training #
+data_aug: False
+batch_size: 8
+lr: 0.0003
+lr_sch: True
+epochs: 1000
+gpus: -1
+noise_fac: 0.
