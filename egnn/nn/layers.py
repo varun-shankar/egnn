@@ -1,10 +1,9 @@
 import torch
 from torch_scatter import scatter
 from e3nn import o3, nn
-from torch.nn import ReLU, Tanh, SiLU, Sigmoid, ELU, Linear
+from torch.nn import ReLU, Linear
 from .utils import *
-from torch_geometric.nn import GCNConv, EdgeConv
-from torchdyn.core import NeuralODE
+from torch_geometric.nn import GCNConv
 
 ## Message Passing Layers ##
 class Eq_NLMP(torch.nn.Module):

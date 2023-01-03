@@ -32,7 +32,7 @@ callbacks = [*rpb,checkpoint_callback,lr_monitor,swa]
 
 # Fit/eval
 if config.get('job_type') != 'eval':
-    wandb_logger.watch(model.node)
+    wandb_logger.watch(model.mod)
     strategy = 'ddp_find_unused_parameters_false' if config.get('gpus') != 1 else None
     trainer = pl.Trainer(accelerator='gpu',
         devices=config.get('gpus'), strategy=strategy, precision=16,

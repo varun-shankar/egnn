@@ -20,7 +20,7 @@ skip_mp_levels_all: [[0,1],[0,2],[0,2],[1,2],[1,2],[1,2]]
 latent_layers: 6
 latent_scalars: 64
 latent_vectors: 0
-model_type: 'non-equivariant'
+model_type: 'equivariant'
 act: 'silu'
 solver: 'euler'
 sensitivity: 'autograd'
@@ -28,7 +28,7 @@ sensitivity: 'autograd'
 # Training #
 data_aug: False
 batch_size: 8
-lr: 0.00005
+lr: 0.00033
 lr_sch: True
 epochs: 3000
 gpus: -1

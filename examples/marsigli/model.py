@@ -1,24 +1,26 @@
-import torch, math
-import copy, sys
+import copy, math
+import torch
+from torch.nn import Tanh, ReLU, ELU, SiLU, Sigmoid
 from e3nn import o3
+from egnn.nn.subnets import *
+from egnn.nn.layers import *
+from torchdyn.core import NeuralODE
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR, OneCycleLR, LambdaLR
 import pytorch_lightning as pl
 from torchmetrics import Metric
-from egnn.nn.subnets import *
-from egnn.nn.layers import *
 ACT_DICT = {'tanh': Tanh(), 'relu': ReLU(), 'elu': ELU(), 'silu': SiLU(), 'sigmoid': Sigmoid()}
 
 ## Model ##
 class Dudt(torch.nn.Module):
-    def __init__(self, enc, f, dec, num_levels=1, cf=[], **kwargs):
+    def __init__(self, enc, lat, dec, num_levels=1, cf=[], **kwargs):
         super(Dudt, self).__init__()
 
         self.num_levels = num_levels
         self.enc = enc
         self.gps = torch.nn.ModuleList()
         for i in range(num_levels-1): 
-            self.gps.append(GraphPool(cf[i], f.layer_type, f.irreps_latent, **kwargs))
-        self.f = f
+            self.gps.append(GraphPool(cf[i], lat.layer_type, lat.irreps_latent, **kwargs))
+        self.lat = lat
         self.dec = dec
         self.data = None
 
@@ -32,62 +34,57 @@ class Dudt(torch.nn.Module):
         for i in range(self.num_levels-1):
             self.data.append(self.gps[i](self.data[i], self.data[0].rkm[0][i+1]))
 
-        data = self.f(self.data)
+        data = self.lat(self.data)
         data[0].sg_idx.append([data[i].idx for i in range(1,len(data))])
         self.data = data[0]
 
         self.data = self.dec(self.data)
         return self.data.hn
 
-def build_model(model_type, irreps_io,
-                latent_layers, latent_scalars, latent_vectors=0,
-                irreps_hidden=None, **kwargs):
-    if 'act' in kwargs:
-        kwargs['act'] = ACT_DICT[kwargs['act']]
-    irreps_fn = o3.Irreps(irreps_io[2])
-    irreps_in = o3.Irreps(irreps_io[0])
-    irreps_latent = o3.Irreps(f'{latent_scalars:g}'+'x0e + '+f'{latent_vectors:g}'+'x1o')
-    irreps_out = o3.Irreps(irreps_io[1])
-    irreps_hidden = (4*(irreps_fn+irreps_in)).sort().irreps.simplify() if irreps_hidden is None else irreps_hidden
+class GraphNet(torch.nn.Module):
+    def __init__(self, model_type, irreps_io,
+                latent_layers, latent_scalars, 
+                latent_vectors=0, irreps_hidden=None, 
+                solver='euler', sensitivity='autograd', **kwargs):
+        super(GraphNet, self).__init__()
 
-    if model_type == 'equivariant':
-        if latent_vectors == 0:
+        if 'act' in kwargs:
+            kwargs['act'] = ACT_DICT[kwargs['act']]
+        irreps_fn = o3.Irreps(irreps_io[2])
+        irreps_in = o3.Irreps(irreps_io[0])
+        irreps_latent = o3.Irreps(f'{latent_scalars:g}'+'x0e + '+f'{latent_vectors:g}'+'x1o')
+        irreps_out = o3.Irreps(irreps_io[1])
+        irreps_hidden = (4*(irreps_fn+irreps_in)).sort().irreps.simplify() if irreps_hidden is None else irreps_hidden
+
+        if model_type == 'equivariant':
+            if latent_vectors == 0:
+                layer_type = nEq_NLMP_iso
+            else:
+                layer_type = Eq_NLMP
+        elif model_type == 'non-equivariant':
+            layer_type = nEq_NLMP
+        elif model_type == 'non-equivariant isotropic':
             layer_type = nEq_NLMP_iso
+        elif model_type == 'GCN':
+            layer_type = GCN
         else:
-            layer_type = Eq_NLMP
-    elif model_type == 'non-equivariant':
-        layer_type = nEq_NLMP
-    elif model_type == 'non-equivariant isotropic':
-        layer_type = nEq_NLMP_iso
-    elif model_type == 'GCN':
-        layer_type = GCN
-    else:
-        print('Unknown model type: ', model_type)
+            print('Unknown model type: ', model_type)
 
-    enc = Encoder(irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
-    f = Latent(layer_type, irreps_latent, latent_layers, **kwargs)
-    dec = Decoder(irreps_latent, irreps_hidden, irreps_out, model_type, **kwargs)
-    dudt = Dudt(enc, f, dec, **kwargs)
-    with torch.no_grad():
-        model = NODE(dudt, **kwargs)
+        enc = Encoder(irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
+        lat = Latent(layer_type, irreps_latent, latent_layers, **kwargs)
+        dec = Decoder(irreps_latent, irreps_hidden, irreps_out, model_type, **kwargs)
 
-    return model
+        self.dudt = Dudt(enc, lat, dec, **kwargs)
+        with torch.no_grad():
+            self.ode = NeuralODE(self.dudt, sensitivity=sensitivity, solver=solver)
 
-class RunningVar(Metric):
-    full_state_update: bool = True
-    def __init__(self):
-        super().__init__()
-        self.add_state("var", default=torch.tensor(0), dist_reduce_fx="sum")
-        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+    def forward(self, u0, data):
 
-    def update(self, preds: torch.Tensor, target: torch.Tensor):
-        assert preds.shape == target.shape
+        data.sg_idx = []
+        self.dudt.data = data
+        t, yhs = self.ode(u0, data.ts[0,:])
 
-        self.var = self.var + torch.mean((preds - target)**2, dim=0, keepdim=True)
-        self.total += 1
-
-    def compute(self):
-        return self.var / self.total
+        return yhs[1:,:,:]
 
 class LitModel(pl.LightningModule):
     def __init__(self, irreps_io,
@@ -98,7 +95,7 @@ class LitModel(pl.LightningModule):
         self.save_hyperparameters()
         
         self.model_type = model_type
-        self.node = build_model(model_type, irreps_io,
+        self.mod = GraphNet(model_type, irreps_io,
             latent_layers, latent_scalars, latent_vectors, **kwargs)
         # self.loss_fn = dm.loss_fn
         self.lr = lr
@@ -111,18 +108,14 @@ class LitModel(pl.LightningModule):
 
     def forward(self, data):
 
-        data.sg_idx = []
         _ = data.rotate(o3.rand_matrix()) if self.data_aug and self.training else 0
 
         xi = data.x
         if self.training:
             xi = xi + o3.Irreps(data.irreps_io[0][0]).randn(xi.shape[0],-1).type_as(xi) * \
             (self.noise_var)**.5
-        
-        self.node.dudt.data = data
-        t, yhs = self.node(xi, data.ts[0,:])
 
-        return yhs[1:,:,:]
+        return self.mod(xi, data)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -201,3 +194,21 @@ class LitModel(pl.LightningModule):
         dict = {'loss': torch.mean((y_hat - data.y.transpose(0,1))**2),
                 'T_loss': torch.mean((y_hat[:,:,-1] - data.y.transpose(0,1)[:,:,-1])**2)}
         return dict
+
+####################################################################################################
+
+class RunningVar(Metric):
+    full_state_update: bool = True
+    def __init__(self):
+        super().__init__()
+        self.add_state("var", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("total", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self, preds: torch.Tensor, target: torch.Tensor):
+        assert preds.shape == target.shape
+
+        self.var = self.var + torch.mean((preds - target)**2, dim=0, keepdim=True)
+        self.total += 1
+
+    def compute(self):
+        return self.var / self.total

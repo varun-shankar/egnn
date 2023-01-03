@@ -1,25 +1,8 @@
 import torch
 from e3nn import o3
-from e3nn.nn import NormActivation
 from .layers import *
 from .utils import *
 from ..data.modules import Data
-
-class NODE(torch.nn.Module):
-    def __init__(self, dudt, solver='euler',
-        sensitivity='autograd', **kwargs):
-        super(NODE, self).__init__()
-
-        self.dudt = dudt
-        self.solver = solver
-        self.ode = NeuralODE(self.dudt, sensitivity=sensitivity, solver=solver)
-
-    def forward(self, u, t_span):
-
-        t, sol = self.ode(u, t_span)
-
-        return t, sol
-
 
 # Pooling #
 class GraphPool(torch.nn.Module):
