@@ -8,9 +8,9 @@ data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
-ts: [40,60]
+ts: [30,70]
 rollout: 1
-test_rollout: 20
+test_rollout: 40
 # sample_graph: 'cluster'
 # hops: 500
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
@@ -32,6 +32,6 @@ data_aug: False
 batch_size: 8
 lr: 0.00005
 lr_sch: True
-epochs: 6000
+epochs: 3000
 gpus: -1
 noise_fac: 1.0

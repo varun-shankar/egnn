@@ -15,7 +15,7 @@ def lightning_setup(config, DataModule, LitModel):
     dm = DataModule(**config)
 
     if config.get('job_type') == 'train':
-        model = LitModel(dm.irreps_io, **config)
+        model = LitModel(**dm.model_args, **config)
         ckpt = None
         run_id = wandb.util.generate_id()
     elif config.get('job_type') == 'retrain':
@@ -24,7 +24,7 @@ def lightning_setup(config, DataModule, LitModel):
         else:
             ckpt = max(glob.glob('checkpoints/run-'+config.get('load_id')+'*'), key=os.path.getctime)
         print('Loading '+ckpt)
-        model = LitModel.load_from_checkpoint(ckpt, dm=dm, **config)
+        model = LitModel.load_from_checkpoint(ckpt, **dm.model_args, **config)
         ckpt = None
         run_id = wandb.util.generate_id()
     elif config.get('job_type') in {'resume', 'eval'}:
@@ -33,7 +33,7 @@ def lightning_setup(config, DataModule, LitModel):
         else:
             ckpt = max(glob.glob('checkpoints/run-'+config.get('load_id')+'*'), key=os.path.getctime)
         print('Loading '+ckpt)
-        model = LitModel.load_from_checkpoint(ckpt, dm=dm, **config)
+        model = LitModel.load_from_checkpoint(ckpt, **dm.model_args, **config)
         import re
         run_id = re.search('run-(.*)-best', ckpt).group(1)
     else:

@@ -27,7 +27,7 @@ checkpoint_callback = ModelCheckpoint(monitor=config.get('monitor','val_loss'),
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
 early_stopping = EarlyStopping('val_loss', patience=1e3, stopping_threshold=1e-7)
 timer = Timer(duration="00:05:00:00")
-swa = StochasticWeightAveraging(2*config.get('lr'), swa_epoch_start=0.95, annealing_epochs=.005*config.get('epochs'))
+swa = StochasticWeightAveraging(2*config.get('lr'), swa_epoch_start=0.95, annealing_epochs=int(.005*config.get('epochs')))
 callbacks = [*rpb,checkpoint_callback,lr_monitor,swa]
 
 # Fit/eval

@@ -82,6 +82,7 @@ class DataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.irreps_data = ['1o+0e','1o+0e'] if self.data_fields=='uvt' else ['3x0e','3x0e']
         self.irreps_io = self.irreps_data; self.irreps_io.append(irreps_fn)
+        self.model_args = {'irreps_io': self.irreps_io}
         self.__dict__.update(kwargs)
 
     def setup(self, stage: Optional[str] = None):
@@ -108,8 +109,8 @@ class DataModule(pl.LightningDataModule):
 
                 # Generate graph
                 edge_index = radius_graph(pos, r=self.rkm[0][0], max_num_neighbors=25)
-                if int(os.environ.get('LOCAL_RANK', 0)) == 0:
-                    print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
+                # if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+                #     print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
 
                 set = [Data(x=v[i,:,:], fn=fn,
                             y=v[i+1:i+1+self.rollout,:,:].transpose(0,1), 
