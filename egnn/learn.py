@@ -11,9 +11,11 @@ def load_config():
     return config
 
 
-def lightning_setup(config, dm, LitModel):
+def lightning_setup(config, DataModule, LitModel):
+    dm = DataModule(**config)
+
     if config.get('job_type') == 'train':
-        model = LitModel(dm, **config)
+        model = LitModel(dm.irreps_io, **config)
         ckpt = None
         run_id = wandb.util.generate_id()
     elif config.get('job_type') == 'retrain':
@@ -37,4 +39,4 @@ def lightning_setup(config, dm, LitModel):
     else:
         print('Unknown job type')
 
-    return model, ckpt, run_id
+    return dm, model, ckpt, run_id

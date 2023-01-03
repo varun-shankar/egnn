@@ -4,7 +4,7 @@ job_type: 'train'
 # load_id: '16yq6tse'
 
 # Data #
-data_fields: 'uvt'
+data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
@@ -13,16 +13,16 @@ rollout: 1
 test_rollout: 20
 # sample_graph: 'cluster'
 # hops: 500
-rkm: [[.05,0,8], [.1,0,8], [.2,0,8]]
+rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
 # Model #
-num_levels: 1
-# cf: [8]
-# skip_mp_levels_all: [[0],[1],[1],[1]]
+num_levels: 3
+cf: [8, 8]
+skip_mp_levels_all: [[0,1],[0,2],[0,2],[1,2],[1,2],[1,2]]
 latent_layers: 6
-latent_scalars: 128
+latent_scalars: 64
 latent_vectors: 0
-model_type: 'equivariant'
+model_type: 'non-equivariant'
 act: 'silu'
 solver: 'euler'
 sensitivity: 'autograd'
@@ -30,8 +30,8 @@ sensitivity: 'autograd'
 # Training #
 data_aug: False
 batch_size: 8
-lr: 0.0003
+lr: 0.00005
 lr_sch: True
-epochs: 1000
+epochs: 6000
 gpus: -1
-noise_fac: 0.
+noise_fac: 1.0

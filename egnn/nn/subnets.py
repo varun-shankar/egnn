@@ -27,16 +27,16 @@ class GraphPool(torch.nn.Module):
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2), **kwargs):
         super(GraphPool, self).__init__()
         
-        self.scorer = layer_type(irreps_latent, '0e', return_array=True, **kwargs)
+        # self.scorer = layer_type(irreps_latent, '0e', return_array=True, **kwargs)
         self.cf = cf
         self.edge_enc = LinNet(irreps_fe, irreps_latent, irreps_latent, layer_type==Eq_NLMP, **kwargs)
 
     def forward(self, data, r):
 
-        score, _ = self.scorer(data)
-        idx = torch.topk(score.flatten(),int(data.num_nodes/self.cf),dim=0).indices
-        gate = torch.sigmoid(score[idx])
-        # idx = torch.randperm(data.num_nodes)[:int(data.num_nodes/self.cf)]
+        # score, _ = self.scorer(data)
+        # idx = torch.topk(score.flatten(),int(data.num_nodes/self.cf),dim=0).indices
+        # gate = torch.sigmoid(score[idx])
+        idx = torch.randperm(data.num_nodes)[:int(data.num_nodes/self.cf)]; gate = 1
 
         subdata = Data(hn=data.hn[idx]*gate, pos=data.pos[idx], batch=data.batch[idx], idx=idx)
         subdata = subdata.resample_edges(r)
@@ -99,23 +99,24 @@ class Latent(torch.nn.Module):
 
 # Encoder/Decoder #
 class Encoder(torch.nn.Module):
-    def __init__(self, irreps_in, irreps_hidden, irreps_latent, model_type='equivariant', 
+    def __init__(self, irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type='equivariant', 
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2), **kwargs):
         super(Encoder, self).__init__()
 
         if model_type=='equivariant':
-            self.node_proj = o3.Linear(irreps_in, irreps_hidden)
+            self.node_proj = o3.Linear(irreps_fn+irreps_in, irreps_hidden)
             self.edge_proj = o3.Linear(irreps_fe, irreps_hidden)
             mp_layer = Eq_NLMP
         else:
-            self.node_proj = Linear(irreps_in.dim, irreps_hidden.dim)
+            self.node_proj = Linear(irreps_fn.dim+irreps_in.dim, irreps_hidden.dim)
             self.edge_proj = Linear(irreps_fe.dim, irreps_hidden.dim)
             mp_layer = nEq_NLMP
 
-        self.mp = torch.nn.Sequential(
-            mp_layer(irreps_hidden, irreps_hidden, **kwargs), NormLayer(),
-            mp_layer(irreps_hidden, irreps_latent, **kwargs)
-        )
+        # self.mp = torch.nn.Sequential(
+        #     mp_layer(irreps_hidden, irreps_hidden, **kwargs), NormLayer(),
+        #     mp_layer(irreps_hidden, irreps_latent, **kwargs)
+        # )
+        self.mp = mp_layer(irreps_hidden, irreps_latent, **kwargs)
 
     def forward(self, data):
 
@@ -137,10 +138,11 @@ class Decoder(torch.nn.Module):
             mp_layer = nEq_NLMP
             self.node_proj = Linear(irreps_hidden.dim, irreps_out.dim)
 
-        self.mp = torch.nn.Sequential(
-            mp_layer(irreps_latent, irreps_hidden, **kwargs), NormLayer(),
-            mp_layer(irreps_hidden, irreps_hidden, **kwargs)
-        )
+        # self.mp = torch.nn.Sequential(
+        #     mp_layer(irreps_latent, irreps_hidden, **kwargs), NormLayer(),
+        #     mp_layer(irreps_hidden, irreps_hidden, **kwargs)
+        # )
+        self.mp = mp_layer(irreps_latent, irreps_hidden, **kwargs)
 
     def forward(self, data):
 

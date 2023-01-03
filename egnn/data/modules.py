@@ -35,7 +35,7 @@ class Data(pygData):
         self.fn = self.fn @ D_fn.T
         return self, D_out
 
-    def embed(self, rkm, num_basis=16, irreps_sh=o3.Irreps.spherical_harmonics(lmax=2)):
+    def embed(self, rkm, num_fes=16, irreps_sh=o3.Irreps.spherical_harmonics(lmax=2)):
         edge_src, edge_dst = self.edge_index
         deg = degree(edge_dst, self.num_nodes).type_as(self.hn)
         # print(deg.min())
@@ -46,8 +46,8 @@ class Data(pygData):
 
         self.edge_vec = self.pos[edge_dst] - self.pos[edge_src]
         # rc = float(self.rc.max()) if torch.is_tensor(self.rc) else self.rc
-        self.fes = soft_one_hot_linspace(self.edge_vec.norm(dim=1), 0.0, rkm, num_basis, 
-            basis='smooth_finite', cutoff=False).mul(num_basis**0.5)
+        self.fes = soft_one_hot_linspace(self.edge_vec.norm(dim=1), 0.0, rkm, num_fes, 
+            basis='smooth_finite', cutoff=False).mul(num_fes**0.5)
         self.fe = o3.spherical_harmonics(irreps_sh, self.edge_vec, normalize=True, normalization='component')
 
     def resample_edges(self, rkm):

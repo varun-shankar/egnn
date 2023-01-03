@@ -1,10 +1,9 @@
-import torch
+import torch, math
 import copy, sys
 from e3nn import o3
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR, OneCycleLR
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR, OneCycleLR, LambdaLR
 import pytorch_lightning as pl
 from torchmetrics import Metric
-
 from egnn.nn.subnets import *
 from egnn.nn.layers import *
 ACT_DICT = {'tanh': Tanh(), 'relu': ReLU(), 'elu': ELU(), 'silu': SiLU(), 'sigmoid': Sigmoid()}
@@ -45,10 +44,11 @@ def build_model(model_type, irreps_io,
                 irreps_hidden=None, **kwargs):
     if 'act' in kwargs:
         kwargs['act'] = ACT_DICT[kwargs['act']]
-    irreps_in = o3.Irreps(irreps_io[2])+o3.Irreps(irreps_io[0])
+    irreps_fn = o3.Irreps(irreps_io[2])
+    irreps_in = o3.Irreps(irreps_io[0])
     irreps_latent = o3.Irreps(f'{latent_scalars:g}'+'x0e + '+f'{latent_vectors:g}'+'x1o')
     irreps_out = o3.Irreps(irreps_io[1])
-    irreps_hidden = '4x0e+4x1o' if irreps_hidden is None else irreps_hidden
+    irreps_hidden = (4*(irreps_fn+irreps_in)).sort().irreps.simplify() if irreps_hidden is None else irreps_hidden
 
     if model_type == 'equivariant':
         if latent_vectors == 0:
@@ -64,15 +64,17 @@ def build_model(model_type, irreps_io,
     else:
         print('Unknown model type: ', model_type)
 
-    enc = Encoder(irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
+    enc = Encoder(irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
     f = Latent(layer_type, irreps_latent, latent_layers, **kwargs)
     dec = Decoder(irreps_latent, irreps_hidden, irreps_out, model_type, **kwargs)
     dudt = Dudt(enc, f, dec, **kwargs)
-    model = NODE(dudt, **kwargs)
+    with torch.no_grad():
+        model = NODE(dudt, **kwargs)
 
     return model
 
 class RunningVar(Metric):
+    full_state_update: bool = True
     def __init__(self):
         super().__init__()
         self.add_state("var", default=torch.tensor(0), dist_reduce_fx="sum")
@@ -88,17 +90,17 @@ class RunningVar(Metric):
         return self.var / self.total
 
 class LitModel(pl.LightningModule):
-    def __init__(self, dm,
-                latent_layers=4, latent_scalars=8, latent_vectors=8, 
+    def __init__(self, irreps_io,
+                latent_layers=4, latent_scalars=16, latent_vectors=0, 
                 model_type='equivariant', noise_var=0, noise_fac=0, data_aug=False,
                 lr=1e-3, epochs=None, lr_sch=False, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         
         self.model_type = model_type
-        self.node = build_model(model_type, dm.irreps_io,
+        self.node = build_model(model_type, irreps_io,
             latent_layers, latent_scalars, latent_vectors, **kwargs)
-        self.loss_fn = dm.loss_fn
+        # self.loss_fn = dm.loss_fn
         self.lr = lr
         self.lr_sch = lr_sch
         self.epochs = epochs
@@ -125,9 +127,10 @@ class LitModel(pl.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         if self.lr_sch:
-            lr_sch = OneCycleLR(optimizer, self.lr, self.epochs, pct_start=0.1)
-            # lr_sch1 = CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=1)
-            # lr_sch2 = StepLR(optimizer, step_size=20, gamma=0.1)
+            lr_sch = LambdaLR(optimizer, lr_lambda=(lambda epoch: 9*math.exp(-10/self.epochs*epoch)+1))
+            # lr_sch = OneCycleLR(optimizer, self.lr, self.epochs, pct_start=0.33)
+            # lr_sch = CosineAnnealingWarmRestarts(optimizer, T_0=50, T_mult=1)
+            # lr_sch = StepLR(optimizer, step_size=20, gamma=0.1)
             return [optimizer], [lr_sch]
         else:
             return [optimizer]
@@ -143,8 +146,11 @@ class LitModel(pl.LightningModule):
         return loss_dict['loss']
     
     def training_epoch_end(self, outputs):
-        frac = self.noise_fac
-        self.noise_var = self.noise_var * (1-frac) + self.var.compute() * frac 
+        L =  self.noise_fac; k = -30/self.epochs; x0 = 0.5*self.epochs
+        multiplier = L/(1+math.exp(k*(self.current_epoch-x0)))
+        self.noise_var = self.var.compute() * multiplier
+        self.log('noise_multiplier', multiplier, sync_dist=True)
+
         self.var.reset()
 
     def validation_step(self, batch, batch_idx):
@@ -153,7 +159,7 @@ class LitModel(pl.LightningModule):
 
         loss_dict = self.loss_fn(y_hat, data)
         for k, v in loss_dict.items():
-            self.log('val_'+k, v, batch_size=data.num_graphs)
+            self.log('val_'+k, v, batch_size=data.num_graphs, sync_dist=True)
         return loss_dict['loss']
 
     def test_step(self, batch, batch_idx, dataloader_idx=0):
@@ -170,11 +176,11 @@ class LitModel(pl.LightningModule):
             loss_dict = self.loss_fn(y_hat, data)
             for k, v in loss_dict.items():
                 self.log('test_'+k, v, batch_size=data.num_graphs,
-                    add_dataloader_idx=False)
+                    add_dataloader_idx=False, sync_dist=True)
 
             eq_loss = torch.nn.functional.mse_loss(y_hat @ D_out.T, y_hat_rot)
             self.log('eq_loss', eq_loss, batch_size=data.num_graphs,
-                add_dataloader_idx=False)
+                add_dataloader_idx=False, sync_dist=True)
 
             if batch_idx == 0 and self.global_rank == 0:
                 torch.save((data,y_hat),'pred.pt')
@@ -184,9 +190,14 @@ class LitModel(pl.LightningModule):
             loss_dict = self.loss_fn(y_hat, data)
             for k, v in loss_dict.items():
                 self.log('test_rollout_'+k, v, batch_size=data.num_graphs,
-                    add_dataloader_idx=False)
+                    add_dataloader_idx=False, sync_dist=True)
 
             if batch_idx == 0 and self.global_rank == 0:
                 torch.save((data,y_hat),'pred_rollout.pt')
 
         return loss_dict['loss']
+
+    def loss_fn(self, y_hat, data):
+        dict = {'loss': torch.mean((y_hat - data.y.transpose(0,1))**2),
+                'T_loss': torch.mean((y_hat[:,:,-1] - data.y.transpose(0,1)[:,:,-1])**2)}
+        return dict

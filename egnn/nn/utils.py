@@ -31,8 +31,8 @@ class LinNet(torch.nn.Module):
             )
         else:
             self.net = torch.nn.Sequential(
-                Linear(irreps_input, irreps_hidden), act,
-                Linear(irreps_hidden, irreps_output)
+                Linear(irreps_input.dim, irreps_hidden.dim), act,
+                Linear(irreps_hidden.dim, irreps_output.dim)
             )
 
     def forward(self, x):

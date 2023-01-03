@@ -9,7 +9,7 @@ from torchdyn.core import NeuralODE
 ## Message Passing Layers ##
 class Eq_NLMP(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val=o3.Irreps.spherical_harmonics(lmax=1),
+                       irreps_val='16x0e+16x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
@@ -55,16 +55,16 @@ class Eq_NLMP(torch.nn.Module):
 
 class nEq_NLMP(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val=o3.Irreps.spherical_harmonics(lmax=1),
+                       irreps_val='16x0e+16x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
         super(nEq_NLMP, self).__init__()
 
-        self.irreps_input = o3.Irreps(irreps_input).dim
-        self.irreps_output = o3.Irreps(irreps_output).dim
-        self.irreps_val = o3.Irreps(irreps_val).dim
-        self.irreps_fe = o3.Irreps(irreps_fe).dim
+        self.irreps_input = o3.Irreps(irreps_input)
+        self.irreps_output = o3.Irreps(irreps_output)
+        self.irreps_val = o3.Irreps(irreps_val)
+        self.irreps_fe = o3.Irreps(irreps_fe)
         if irreps_input == irreps_output:
             self.residual = residual
         else:
@@ -73,7 +73,7 @@ class nEq_NLMP(torch.nn.Module):
         
         self.edge_val = LinNet(3*self.irreps_input, hx*self.irreps_input, self.irreps_val, False, **kwargs)
 
-        self.tp = Linear(self.irreps_val+self.irreps_fe+num_fes, self.irreps_output)
+        self.tp = Linear(self.irreps_val.dim+self.irreps_fe.dim+num_fes, self.irreps_output.dim)
         self.edge_upd = LinNet(self.irreps_output+2*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, False, **kwargs)
@@ -100,16 +100,16 @@ class nEq_NLMP(torch.nn.Module):
 
 class nEq_NLMP_iso(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val=o3.Irreps.spherical_harmonics(lmax=1),
+                       irreps_val='16x0e+16x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
         super(nEq_NLMP_iso, self).__init__()
 
-        self.irreps_input = o3.Irreps(irreps_input).dim
-        self.irreps_output = o3.Irreps(irreps_output).dim
-        self.irreps_val = o3.Irreps(irreps_val).dim
-        self.irreps_fe = o3.Irreps(irreps_fe).dim
+        self.irreps_input = o3.Irreps(irreps_input)
+        self.irreps_output = o3.Irreps(irreps_output)
+        self.irreps_val = o3.Irreps(irreps_val)
+        self.irreps_fe = o3.Irreps(irreps_fe)
         if irreps_input == irreps_output:
             self.residual = residual
         else:
@@ -118,7 +118,7 @@ class nEq_NLMP_iso(torch.nn.Module):
 
         self.edge_val = LinNet(3*self.irreps_input, hx*self.irreps_input, self.irreps_val, False, **kwargs)
 
-        self.tp = Linear(self.irreps_val+num_fes, self.irreps_output)
+        self.tp = Linear(self.irreps_val.dim+num_fes, self.irreps_output.dim)
         self.edge_upd = LinNet(self.irreps_output+2*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, False, **kwargs)
