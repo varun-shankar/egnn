@@ -23,20 +23,24 @@ class NODE(torch.nn.Module):
 
 # Pooling #
 class GraphPool(torch.nn.Module):
-    def __init__(self, cf, layer_type, irreps_latent, 
+    def __init__(self, cf, layer_type, irreps_latent, pool_type='random',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2), **kwargs):
         super(GraphPool, self).__init__()
         
-        # self.scorer = layer_type(irreps_latent, '0e', return_array=True, **kwargs)
+        self.pool_type = pool_type
+        if self.pool_type == 'topk':
+            self.scorer = layer_type(irreps_latent, '0e', return_array=True, **kwargs)
         self.cf = cf
         self.edge_enc = LinNet(irreps_fe, irreps_latent, irreps_latent, layer_type==Eq_NLMP, **kwargs)
 
     def forward(self, data, r):
 
-        # score, _ = self.scorer(data)
-        # idx = torch.topk(score.flatten(),int(data.num_nodes/self.cf),dim=0).indices
-        # gate = torch.sigmoid(score[idx])
-        idx = torch.randperm(data.num_nodes)[:int(data.num_nodes/self.cf)]; gate = 1
+        if self.pool_type == 'topk':
+            score, _ = self.scorer(data)
+            idx = torch.topk(score.flatten(),int(data.num_nodes/self.cf),dim=0).indices
+            gate = torch.sigmoid(score[idx])
+        elif self.pool_type == 'random':
+            idx = torch.randperm(data.num_nodes)[:int(data.num_nodes/self.cf)]; gate = 1
 
         subdata = Data(hn=data.hn[idx]*gate, pos=data.pos[idx], batch=data.batch[idx], idx=idx)
         subdata = subdata.resample_edges(r)

@@ -11,8 +11,6 @@ num_nodes: -1
 ts: [30,70]
 rollout: 1
 test_rollout: 40
-# sample_graph: 'cluster'
-# hops: 500
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
 # Model #
