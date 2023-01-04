@@ -25,7 +25,7 @@ class Data(pygData):
     def rotate(self, rot):
         irreps_in = o3.Irreps(self.irreps_io[0][0]).simplify()
         irreps_out = o3.Irreps(self.irreps_io[0][1]).simplify()
-        irreps_fn = o3.Irreps(self.irreps_io[0][2])
+        irreps_fn = o3.Irreps(self.irreps_io[0][2]).simplify()
         D_in = irreps_in.D_from_matrix(rot).type_as(self.x)
         D_out = irreps_out.D_from_matrix(rot).type_as(self.x)
         D_fn = irreps_fn.D_from_matrix(rot).type_as(self.x)
@@ -35,7 +35,7 @@ class Data(pygData):
         self.fn = self.fn @ D_fn.T
         return self, D_out
 
-    def embed(self, rkm, num_fes=16, irreps_sh=o3.Irreps.spherical_harmonics(lmax=2)):
+    def embed(self, rc, num_fes=16, irreps_sh=o3.Irreps.spherical_harmonics(lmax=2)):
         edge_src, edge_dst = self.edge_index
         deg = degree(edge_dst, self.num_nodes).type_as(self.hn)
         # print(deg.min())
@@ -46,13 +46,15 @@ class Data(pygData):
 
         self.edge_vec = self.pos[edge_dst] - self.pos[edge_src]
         # rc = float(self.rc.max()) if torch.is_tensor(self.rc) else self.rc
-        self.fes = soft_one_hot_linspace(self.edge_vec.norm(dim=1), 0.0, rkm, num_fes, 
+        self.fes = soft_one_hot_linspace(self.edge_vec.norm(dim=1), 0.0, rc, num_fes, 
             basis='smooth_finite', cutoff=False).mul(num_fes**0.5)
         self.fe = o3.spherical_harmonics(irreps_sh, self.edge_vec, normalize=True, normalization='component')
 
-    def resample_edges(self, rkm):
+    def resample_edges(self, rkm, training=True):
         with torch.no_grad():
             r, k, m = rkm
+            if isinstance(m, list):
+                m = m[0] if training else m[1]
             if k != 0:
                 self.edge_index = knn_graph(self.pos, batch=self.batch, k=k)
             else:

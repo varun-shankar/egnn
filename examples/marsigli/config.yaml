@@ -1,16 +1,16 @@
 # Init #
 project: 'egnn-model'
 job_type: 'train'
-# load_id: '16yq6tse'
+# load_id: '11y81hfn'
 
 # Data #
 data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
-ts: [30,70]
+ts: [0,25]
 rollout: 1
-test_rollout: 40
+test_rollout: 50
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
 # Model #
@@ -18,18 +18,18 @@ num_levels: 3
 cf: [8, 8]
 skip_mp_levels_all: [[0,1],[0,2],[0,2],[1,2],[1,2],[1,2]]
 latent_layers: 6
-latent_scalars: 64
-latent_vectors: 0
-model_type: 'equivariant'
+latent_dim: 64
+latent_vectors: False
+model_type: 'non-equivariant'
 act: 'silu'
 solver: 'euler'
 sensitivity: 'autograd'
 
 # Training #
 data_aug: False
-batch_size: 8
-lr: 0.00033
+batch_size: 16
+lr: 0.00005
 lr_sch: True
-epochs: 3000
+epochs: 5000
 gpus: -1
-noise_fac: 1.0
+noise_fac: 1.5

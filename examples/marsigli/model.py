@@ -27,7 +27,7 @@ class Dudt(torch.nn.Module):
     def forward(self, t, u):
         self.data.hn = u
 
-        self.data = self.data.resample_edges(self.data.rkm[0][0])
+        self.data = self.data.resample_edges(self.data.rkm[0][0], self.training)
         self.data = self.enc(self.data)
 
         self.data = [self.data]
@@ -42,17 +42,23 @@ class Dudt(torch.nn.Module):
         return self.data.hn
 
 class GraphNet(torch.nn.Module):
-    def __init__(self, model_type, irreps_io,
-                latent_layers, latent_scalars, 
-                latent_vectors=0, irreps_hidden=None, 
+    def __init__(self, irreps_io,
+                model_type='equivariant', latent_layers=4, latent_dim=64, 
+                latent_vectors=False, irreps_hidden=None, 
                 solver='euler', sensitivity='autograd', **kwargs):
         super(GraphNet, self).__init__()
-
         if 'act' in kwargs:
             kwargs['act'] = ACT_DICT[kwargs['act']]
+        if latent_vectors:
+            latent_scalars = int(latent_dim/4)
+            latent_vectors = int(latent_dim/4)
+        else:
+            latent_scalars = latent_dim
+            latent_vectors = 0
+
         irreps_fn = o3.Irreps(irreps_io[2])
         irreps_in = o3.Irreps(irreps_io[0])
-        irreps_latent = o3.Irreps(f'{latent_scalars:g}'+'x0e + '+f'{latent_vectors:g}'+'x1o')
+        irreps_latent = o3.Irreps(f'{latent_scalars:g}'+'x0e + '+f'{latent_vectors:g}'+'x1o').simplify()
         irreps_out = o3.Irreps(irreps_io[1])
         irreps_hidden = (4*(irreps_fn+irreps_in)).sort().irreps.simplify() if irreps_hidden is None else irreps_hidden
 
@@ -88,20 +94,16 @@ class GraphNet(torch.nn.Module):
 
 class LitModel(pl.LightningModule):
     def __init__(self, irreps_io,
-                latent_layers=4, latent_scalars=16, latent_vectors=0, 
-                model_type='equivariant', noise_var=0, noise_fac=0, data_aug=False,
+                noise_fac=0, data_aug=False,
                 lr=1e-3, epochs=None, lr_sch=False, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         
-        self.model_type = model_type
-        self.mod = GraphNet(model_type, irreps_io,
-            latent_layers, latent_scalars, latent_vectors, **kwargs)
-        # self.loss_fn = dm.loss_fn
+        self.mod = GraphNet(irreps_io, **kwargs)
         self.lr = lr
         self.lr_sch = lr_sch
         self.epochs = epochs
-        self.noise_var = noise_var
+        self.noise_var = 0
         self.noise_fac = noise_fac
         self.var = RunningVar()
         self.data_aug = data_aug

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from typing import Optional
 import random, os
-from torch_cluster import knn_graph, radius_graph
+from torch_cluster import radius_graph
 import torch.nn.functional as F
 from torch_geometric.data import Batch as pygBatch
 from math import log
@@ -156,8 +156,8 @@ class DataModule(pl.LightningDataModule):
 
             # Generate graph
             edge_index = radius_graph(pos, r=self.rkm[0][0], max_num_neighbors=25)
-            if int(os.environ.get('LOCAL_RANK', 0)) == 0:
-                print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
+            # if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+            #     print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
 
             testset = [Data(x=v[i,:,:], fn=fn,
                             y=v[i+1:i+1+self.rollout,:,:].transpose(0,1), 
@@ -183,8 +183,3 @@ class DataModule(pl.LightningDataModule):
     def test_dataloader(self):
         return [DataLoader(self.test_data, batch_size=self.batch_size, num_workers=8),
                 DataLoader(self.test_data_rollout, num_workers=8)]
-
-    def loss_fn(self, y_hat, data):
-        dict = {'loss': torch.mean((y_hat - data.y.transpose(0,1))**2),
-                'T_loss': torch.mean((y_hat[:,:,-1] - data.y.transpose(0,1)[:,:,-1])**2)}
-        return dict
