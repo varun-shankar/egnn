@@ -56,18 +56,18 @@ def velocity(nx,ny,dx,dy,s):
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, ts, rkm,
+    def __init__(self, tspan, rkm,
                        dir='/home/vshanka2/data/marsigli/Results/',
                        num_nodes=-1, sample_graph=None,
                        rollout=1,
                        data_fields='wst', irreps_fn='3x0e+1o',
                        train_split=0.9, random_split=True,
                        train_cases=[700,900,1100,1300],
-                       test_case=1000, test_rollout=0,
+                       test_case=1000, test_rollout=None,
                        shuffle=True, batch_size=1, **kwargs):
         super().__init__()
         self.dir = dir
-        self.ts = ts
+        self.tspan = tspan
         self.rkm = rkm
         self.num_nodes = num_nodes
         self.sample_graph = sample_graph
@@ -77,9 +77,9 @@ class DataModule(pl.LightningDataModule):
         self.random_split = random_split
         self.train_cases = train_cases
         self.test_case = test_case
-        self.test_rollout = test_rollout
+        self.test_rollout = tspan[1]-tspan[0] if test_rollout is None else test_rollout
         self.shuffle = shuffle
-        self.batch_size = batch_size
+        self.batch_size = batch_size if isinstance(batch_size,int) else 1
         self.irreps_data = ['1o+0e','1o+0e'] if self.data_fields=='uvt' else ['3x0e','3x0e']
         self.irreps_io = self.irreps_data; self.irreps_io.append(irreps_fn)
         self.model_args = {'irreps_io': self.irreps_io}
@@ -87,7 +87,7 @@ class DataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == 'fit':
-            self.ts = 80*(torch.arange(self.ts[0],self.ts[1]+1))*2
+            self.ts = 80*(torch.arange(self.tspan[0],self.tspan[1]+1))*2
             dt = 5e-4
             n = o3.Norm(self.irreps_data[0])
             mult = o3.ElementwiseTensorProduct(n.irreps_out, self.irreps_data[0])

@@ -8,9 +8,8 @@ data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
-ts: [0,25]
+tspan: [0,25]
 rollout: 1
-test_rollout: 50
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
 # Model #
@@ -20,15 +19,15 @@ skip_mp_levels_all: [[0,1],[0,2],[0,2],[1,2],[1,2],[1,2]]
 latent_layers: 6
 latent_dim: 64
 latent_vectors: False
-model_type: 'non-equivariant'
+model_type: 'equivariant'
 act: 'silu'
 solver: 'euler'
 sensitivity: 'autograd'
 
 # Training #
 data_aug: False
-batch_size: 16
-lr: 0.00005
+batch_size: 'auto'
+lr: 0.0003
 lr_sch: True
 epochs: 5000
 gpus: -1

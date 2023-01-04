@@ -9,11 +9,18 @@ import wandb
 from egnn.learn import *
 
 ### Config ###
-config = load_config()
+config, cfg_file = load_config()
 config['dataset'] = os.path.basename(os.path.dirname(__file__))
 
 ### Lightning setup ###
 dm, model, ckpt, run_id = lightning_setup(config, DataModule, LitModel)
+
+if config.get('batch_size')=='auto':
+    os.system('python auto_batch.py --config '+cfg_file)
+    with open('.batch_size', 'r') as fl:
+        bs = int(fl.read())
+    os.remove('.batch_size')
+    dm.batch_size = bs
 
 ### Train ###
 wandb_logger = WandbLogger(project=config.get('project'), log_model=True, 
@@ -37,9 +44,9 @@ if config.get('job_type') != 'eval':
     trainer = pl.Trainer(accelerator='gpu',
         devices=config.get('gpus'), strategy=strategy, precision=16,
         logger=wandb_logger, callbacks=callbacks, limit_test_batches=10,
-        max_epochs=config.get('epochs'), log_every_n_steps=5,
+        max_epochs=config.get('epochs'), log_every_n_steps=5
     )
-    trainer.fit(model, dm, ckpt_path=ckpt)
+    trainer.fit(model, datamodule=dm, ckpt_path=ckpt)
     trainer.test(model, datamodule=dm)
 else:
     dm.setup('fit')

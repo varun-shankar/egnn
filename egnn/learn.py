@@ -8,7 +8,7 @@ def load_config():
     args = parser.parse_args()
     with open(args.config,'r') as fl:
         config = yaml.load(fl,yaml.FullLoader)
-    return config
+    return config, args.config
 
 
 def lightning_setup(config, DataModule, LitModel):
