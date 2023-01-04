@@ -12,7 +12,6 @@ from math import log
 from e3nn import o3, io
 from torch_geometric.loader import DataLoader, NeighborSampler, RandomNodeSampler
 from torch_geometric.loader import GraphSAINTRandomWalkSampler as RWSampler
-import pytorch_lightning as pl
 
 
 class Data(pygData):

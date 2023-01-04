@@ -1,0 +1,18 @@
+name: ml
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pytorch-cuda=11.6
+  - torchvision
+  - pytorch
+  - torchaudio
+  - pyg
+  - pytorch-lightning
+  - torchmetrics
+  - pip:
+    - e3nn==0.5.1
+    - rich
+    - torchdyn
+    - wandb
+prefix: /home/vshanka2/miniconda3/envs/ml
