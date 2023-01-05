@@ -1,14 +1,14 @@
 # Init #
 project: 'egnn-model'
-job_type: 'train'
-# load_id: '11y81hfn'
+job_type: 'retrain'
+# load_id: '3dx67kw0'
 
 # Data #
 data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
-tspan: [0,25]
+tspan: [0,50]
 rollout: 1
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
@@ -26,9 +26,9 @@ sensitivity: 'autograd'
 
 # Training #
 data_aug: False
-batch_size: 'auto'
-lr: 0.0003
-lr_sch: True
-epochs: 5000
+batch_size: 8
+lr: 0.0002
+lr_sch: False
+epochs: 4000
 gpus: -1
 noise_fac: 1.5
