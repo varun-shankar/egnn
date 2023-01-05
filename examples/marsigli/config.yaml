@@ -8,7 +8,7 @@ data_fields: 'wst'
 train_cases: [700,900,1100,1300]
 test_case: 1000
 num_nodes: -1
-tspan: [0,25]
+tspan: [25,75]
 rollout: 1
 rkm: [[.05,0,8], [.2,0,8], [.5,0,8]]
 
@@ -26,9 +26,9 @@ sensitivity: 'autograd'
 
 # Training #
 data_aug: False
-batch_size: 'auto'
+batch_size: 2
 lr: 0.0003
 lr_sch: True
 epochs: 5000
 gpus: -1
-noise_fac: 1.5
+noise_fac: 2.

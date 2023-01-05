@@ -12,15 +12,13 @@ from egnn.learn import *
 config, cfg_file = load_config()
 config['dataset'] = os.path.basename(os.path.dirname(__file__))
 
+wandb.init(config=SimpleNamespace(**config))
+config = wandb.config
+if config.get('model_type') == 'non-equivariant':
+    config['lr'] = .00005
+
 ### Lightning setup ###
 dm, model, ckpt, run_id = lightning_setup(config, DataModule, LitModel)
-
-if config.get('batch_size')=='auto':
-    os.system('python auto_batch.py --config '+cfg_file)
-    with open('.batch_size', 'r') as fl:
-        bs = int(fl.read())
-    os.remove('.batch_size')
-    dm.batch_size = bs
 
 ### Train ###
 wandb_logger = WandbLogger(project=config.get('project'), log_model=True, 
