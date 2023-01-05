@@ -175,11 +175,11 @@ class DataModule(pl.LightningDataModule):
             self.test_data_rollout = testset_rollout
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=self.batch_size, shuffle=self.shuffle, num_workers=8)
+        return DataLoader(self.train_data, batch_size=self.batch_size, shuffle=self.shuffle, num_workers=4)
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=8)
+        return DataLoader(self.val_data, batch_size=self.batch_size, num_workers=4)
 
     def test_dataloader(self):
-        return [DataLoader(self.test_data, batch_size=self.batch_size, num_workers=8),
-                DataLoader(self.test_data_rollout, num_workers=8)]
+        return [DataLoader(self.test_data, batch_size=self.batch_size, num_workers=4),
+                DataLoader(self.test_data_rollout, num_workers=4)]

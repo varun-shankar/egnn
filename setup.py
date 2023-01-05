@@ -18,7 +18,6 @@ setup(
         "numpy",
         "torch",
         "e3nn",
-        "pyg",
         "setuptools",
         "pytorch-lightning",
         "wandb"

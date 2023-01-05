@@ -22,9 +22,9 @@ class Data(pygData):
     #         return super().__cat_dim__(key, value, *args, **kwargs)
 
     def rotate(self, rot):
-        irreps_in = o3.Irreps(self.irreps_io[0][0]).simplify()
-        irreps_out = o3.Irreps(self.irreps_io[0][1]).simplify()
-        irreps_fn = o3.Irreps(self.irreps_io[0][2]).simplify()
+        irreps_in = o3.Irreps(self.irreps_io[0][0])
+        irreps_out = o3.Irreps(self.irreps_io[0][1])
+        irreps_fn = o3.Irreps(self.irreps_io[0][2])
         D_in = irreps_in.D_from_matrix(rot).type_as(self.x)
         D_out = irreps_out.D_from_matrix(rot).type_as(self.x)
         D_fn = irreps_fn.D_from_matrix(rot).type_as(self.x)
