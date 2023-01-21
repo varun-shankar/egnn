@@ -87,7 +87,7 @@ class DataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == 'fit':
-            self.ts = 80*(torch.arange(self.tspan[0],self.tspan[1]+1))*2
+            self.ts = 80*(torch.arange(self.tspan[0],self.tspan[1]+1))*4
             dt = 5e-4
             n = o3.Norm(self.irreps_data[0])
             mult = o3.ElementwiseTensorProduct(n.irreps_out, self.irreps_data[0])
@@ -113,7 +113,7 @@ class DataModule(pl.LightningDataModule):
                 #     print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
 
                 set = [Data(x=v[i,:,:], fn=fn,
-                            y=v[i+1:i+1+self.rollout,:,:].transpose(0,1), 
+                            y=v[i:i+1+self.rollout,:,:].transpose(0,1), 
                             irreps_io=self.irreps_io,
                             ts=(dt*self.ts[i:i+1+self.rollout].unsqueeze(0)), 
                             pos=pos, edge_index=edge_index, rkm=self.rkm
@@ -160,13 +160,13 @@ class DataModule(pl.LightningDataModule):
             #     print(f'Avg neighbors: {edge_index.shape[1]/pos.shape[0]:.2f}')
 
             testset = [Data(x=v[i,:,:], fn=fn,
-                            y=v[i+1:i+1+self.rollout,:,:].transpose(0,1), 
+                            y=v[i:i+1+self.rollout,:,:].transpose(0,1), 
                             irreps_io=self.irreps_io,
                             ts=(dt*self.ts[i:i+1+self.rollout].unsqueeze(0)), 
                             pos=pos, edge_index=edge_index, rkm=self.rkm
                             ) for i in range(len(self.ts)-self.rollout)]
             testset_rollout = [Data(x=v[i,:,:], fn=fn,
-                                y=v[i+1:i+1+self.test_rollout,:,:].transpose(0,1), 
+                                y=v[i:i+1+self.test_rollout,:,:].transpose(0,1), 
                                 irreps_io=self.irreps_io,
                                 ts=(dt*self.ts[i:i+1+self.test_rollout].unsqueeze(0)), 
                                 pos=pos, edge_index=edge_index, rkm=self.rkm

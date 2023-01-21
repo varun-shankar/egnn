@@ -50,7 +50,8 @@ def plot(filename):
         ims[2].set_array(up)
         ims[3].set_array(up)
         ims[4].set_array((ut-up)**2)
-        mask = np.zeros(data.pos.shape[0]); mask[data.sg_idx[i][0]] = 1; mask = mask[inds]
+        mask = np.zeros(data.pos.shape[0]); #mask[data.sg_idx[i][0]] = 1; 
+        mask = mask[inds]
         ims[5].set_color(np.tile(mask,(3,1)).T)
         return ims
 

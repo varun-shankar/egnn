@@ -11,13 +11,13 @@ def load_config():
     return config, args.config
 
 
-def lightning_setup(config, DataModule, LitModel):
+def lightning_setup(config, DataModule, LitModel, run_id=None):
     dm = DataModule(**config)
 
     if config.get('job_type') == 'train':
         model = LitModel(**dm.model_args, **config)
         ckpt = None
-        run_id = wandb.util.generate_id()
+        run_id = wandb.util.generate_id() if run_id is None else run_id
     elif config.get('job_type') == 'retrain':
         if config.get('load_id', None) is None:
             ckpt = max(glob.glob('checkpoints/*'), key=os.path.getctime)
@@ -26,7 +26,7 @@ def lightning_setup(config, DataModule, LitModel):
         print('Loading '+ckpt)
         model = LitModel.load_from_checkpoint(ckpt, **dm.model_args, **config)
         ckpt = None
-        run_id = wandb.util.generate_id()
+        run_id = wandb.util.generate_id() if run_id is None else run_id
     elif config.get('job_type') in {'resume', 'eval'}:
         if config.get('load_id', None) is None:
             ckpt = max(glob.glob('checkpoints/*'), key=os.path.getctime)

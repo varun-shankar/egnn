@@ -76,11 +76,14 @@ class GraphNet(torch.nn.Module):
         else:
             print('Unknown model type: ', model_type)
 
-        enc = Encoder(irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
-        lat = Latent(layer_type, irreps_latent, latent_layers, **kwargs)
-        dec = Decoder(irreps_latent, irreps_hidden, irreps_out, model_type, **kwargs)
+        self.enc = Encoder(irreps_fn, irreps_in, irreps_hidden, irreps_latent, model_type, **kwargs)
+        self.lat = Latent(layer_type, irreps_latent, latent_layers, **kwargs)
+        self.dec = Decoder(irreps_latent, irreps_hidden, irreps_out, model_type, **kwargs)
+        
+        # for p in self.enc.parameters(): p.requires_grad = False
+        # for p in self.dec.parameters(): p.requires_grad = False
 
-        self.dudt = Dudt(enc, lat, dec, **kwargs)
+        self.dudt = Dudt(self.enc, self.lat, self.dec, **kwargs)
         with torch.no_grad():
             self.ode = NeuralODE(self.dudt, sensitivity=sensitivity, solver=solver)
 
@@ -89,22 +92,31 @@ class GraphNet(torch.nn.Module):
         data.sg_idx = []
         self.dudt.data = data
         t, yhs = self.ode(u0, data.ts[0,:])
+        # self.data = data
+        # self.data.hn = u0
+        # self.data = self.data.resample_edges(self.data.rkm[0][0], self.training)
+        # self.data = self.enc(self.data)
+        # self.data = self.dec(self.data)
+        # yhs = self.data.hn.unsqueeze(0)
 
-        return yhs[1:,:,:]
+
+        return yhs
 
 class LitModel(pl.LightningModule):
     def __init__(self, irreps_io,
-                noise_fac=0, data_aug=False,
-                lr=1e-3, epochs=None, lr_sch=False, **kwargs):
+                 epochs=None, data_aug=False,
+                 lr=1e-3, lr_sch=False, 
+                 noise_fac=0, noise_sch=True, **kwargs):
         super().__init__()
         self.save_hyperparameters()
         
         self.mod = GraphNet(irreps_io, **kwargs)
+        self.epochs = epochs
         self.lr = lr
         self.lr_sch = lr_sch
-        self.epochs = epochs
         self.noise_var = 0
         self.noise_fac = noise_fac
+        self.noise_sch = noise_sch
         self.var = RunningVar()
         self.data_aug = data_aug
 
@@ -133,7 +145,6 @@ class LitModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         data = batch#.subsample()
         y_hat = self(data)
-        self.var.update(y_hat[-1], data.y.transpose(0,1)[-1])
 
         loss_dict = self.loss_fn(y_hat, data)
         for k, v in loss_dict.items():
@@ -141,9 +152,9 @@ class LitModel(pl.LightningModule):
         return loss_dict['loss']
     
     def training_epoch_end(self, outputs):
-        L =  self.noise_fac; k = -30/self.epochs; x0 = 0.5*self.epochs
-        multiplier = L/(1+math.exp(k*(self.current_epoch-x0)))
-        self.noise_var = self.var.compute() * multiplier
+        L =  self.noise_fac; k = -30/self.epochs; x0 = 0.33*self.epochs
+        multiplier = L/(1+math.exp(k*(self.current_epoch-x0))) if self.noise_sch else L
+        self.noise_var = multiplier #* self.var.compute()
         self.log('noise_multiplier', multiplier, sync_dist=True)
 
         self.var.reset()
@@ -151,6 +162,7 @@ class LitModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         data = batch
         y_hat = self(data)
+        self.var.update(y_hat[-1], data.y.transpose(0,1)[-1])
 
         loss_dict = self.loss_fn(y_hat, data)
         for k, v in loss_dict.items():
@@ -193,8 +205,9 @@ class LitModel(pl.LightningModule):
         return loss_dict['loss']
 
     def loss_fn(self, y_hat, data):
-        dict = {'loss': torch.mean((y_hat - data.y.transpose(0,1))**2),
-                'T_loss': torch.mean((y_hat[:,:,-1] - data.y.transpose(0,1)[:,:,-1])**2)}
+        yh = y_hat[1:,:,:]; yt = data.y.transpose(0,1)[1:,:,:]
+        dict = {'loss': torch.mean((yh - yt)**2),
+                'T_loss': torch.mean((yh[:,:,-1] - yt[:,:,-1])**2)}
         return dict
 
 ####################################################################################################

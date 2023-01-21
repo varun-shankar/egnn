@@ -8,7 +8,7 @@ from torch_geometric.nn import GCNConv
 ## Message Passing Layers ##
 class Eq_NLMP(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val='16x0e+16x1o',
+                       irreps_val='4x0e+4x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
@@ -28,7 +28,7 @@ class Eq_NLMP(torch.nn.Module):
 
         self.tp = o3.FullyConnectedTensorProduct(self.irreps_val, self.irreps_fe, self.irreps_output, shared_weights=False)
         self.fc = nn.FullyConnectedNet([num_fes, hx*num_fes, self.tp.weight_numel], kwargs.get('act', ReLU()))
-        self.edge_upd = LinNet(self.tp.irreps_out+2*self.irreps_input, hx*self.irreps_output, self.irreps_output, True, **kwargs)
+        # self.edge_upd = LinNet(self.tp.irreps_out+3*self.irreps_input, hx*self.irreps_output, self.irreps_output, True, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, True, **kwargs)
 
@@ -38,7 +38,7 @@ class Eq_NLMP(torch.nn.Module):
         v = self.edge_val(torch.cat([data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         
         tp = self.tp(v, data.fe, self.fc(data.fes))
-        heu = self.edge_upd(torch.cat([tp,data.hn[edge_src],data.hn[edge_dst]],dim=1))
+        heu = tp#self.edge_upd(torch.cat([tp,data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         hen = (data.he + heu) if self.residual else heu
 
         node_tmp = scatter(hen*data.norm.view(-1, 1), edge_dst, dim=0, dim_size=data.num_nodes)
@@ -54,7 +54,7 @@ class Eq_NLMP(torch.nn.Module):
 
 class nEq_NLMP(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val='16x0e+16x1o',
+                       irreps_val='4x0e+4x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
@@ -72,8 +72,9 @@ class nEq_NLMP(torch.nn.Module):
         
         self.edge_val = LinNet(3*self.irreps_input, hx*self.irreps_input, self.irreps_val, False, **kwargs)
 
-        self.tp = Linear(self.irreps_val.dim+self.irreps_fe.dim+num_fes, self.irreps_output.dim)
-        self.edge_upd = LinNet(self.irreps_output+2*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
+        # self.tp = Linear(self.irreps_val.dim+self.irreps_fe.dim+num_fes, self.irreps_output.dim)
+        self.fc = nn.FullyConnectedNet([self.irreps_fe.dim+num_fes, hx*num_fes, self.irreps_val.dim*self.irreps_output.dim], kwargs.get('act', ReLU()))
+        # self.edge_upd = LinNet(self.irreps_output+3*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
@@ -82,8 +83,9 @@ class nEq_NLMP(torch.nn.Module):
         edge_src, edge_dst = data.edge_index
         v = self.edge_val(torch.cat([data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         
-        tp = self.tp(torch.cat([v, data.fe, data.fes],dim=1))
-        heu = self.edge_upd(torch.cat([tp,data.hn[edge_src],data.hn[edge_dst]],dim=1))
+        # tp = self.tp(torch.cat([v, data.fe, data.fes],dim=1))
+        tp = torch.bmm(v.unsqueeze(1),self.fc(torch.cat([data.fe, data.fes],dim=1)).reshape(v.shape[0],self.irreps_val.dim,self.irreps_output.dim)).squeeze()
+        heu = tp#self.edge_upd(torch.cat([tp,data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         hen = (data.he + heu) if self.residual else heu
 
         node_tmp = scatter(hen*data.norm.view(-1, 1), edge_dst, dim=0, dim_size=data.num_nodes)
@@ -99,7 +101,7 @@ class nEq_NLMP(torch.nn.Module):
 
 class nEq_NLMP_iso(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val='16x0e+16x1o',
+                       irreps_val='4x0e+4x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):
@@ -117,8 +119,9 @@ class nEq_NLMP_iso(torch.nn.Module):
 
         self.edge_val = LinNet(3*self.irreps_input, hx*self.irreps_input, self.irreps_val, False, **kwargs)
 
-        self.tp = Linear(self.irreps_val.dim+num_fes, self.irreps_output.dim)
-        self.edge_upd = LinNet(self.irreps_output+2*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
+        # self.tp = Linear(self.irreps_val.dim+num_fes, self.irreps_output.dim)
+        self.fc = nn.FullyConnectedNet([num_fes, hx*num_fes, self.irreps_val.dim*self.irreps_output.dim], kwargs.get('act', ReLU()))
+        # self.edge_upd = LinNet(self.irreps_output+3*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
@@ -127,8 +130,9 @@ class nEq_NLMP_iso(torch.nn.Module):
         edge_src, edge_dst = data.edge_index
         v = self.edge_val(torch.cat([data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         
-        tp = self.tp(torch.cat([v, data.fes],dim=1))
-        heu = self.edge_upd(torch.cat([tp,data.hn[edge_src],data.hn[edge_dst]],dim=1))
+        # tp = self.tp(torch.cat([v, data.fes],dim=1))
+        tp = torch.bmm(v.unsqueeze(1),self.fc(data.fes).reshape(v.shape[0],self.irreps_val.dim,self.irreps_output.dim)).squeeze()
+        heu = tp#self.edge_upd(torch.cat([tp,data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         hen = (data.he + heu) if self.residual else heu
 
         node_tmp = scatter(hen*data.norm.view(-1, 1), edge_dst, dim=0, dim_size=data.num_nodes)
