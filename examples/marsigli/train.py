@@ -17,9 +17,9 @@ wandb.init(config=SimpleNamespace(**config))
 config = wandb.config
 if config.get('model_type') == 'equivariant':
     if config.get('latent_vectors') == True:
-        config.update({'lr': 0.0001}, allow_val_change=True)
+        config.update({'lr': 0.0002}, allow_val_change=True)
     else:
-        config.update({'lr': 0.00005}, allow_val_change=True)
+        config.update({'lr': 0.0001}, allow_val_change=True)
 else:
     config.update({'lr': 0.00001}, allow_val_change=True)
 

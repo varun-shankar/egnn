@@ -4,6 +4,8 @@ __pycache__/
 lightning_logs/
 wandb/
 checkpoints/
+preds/
+logs/
 egnn-model/
 *.pt
 *.out

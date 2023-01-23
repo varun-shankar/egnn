@@ -73,7 +73,7 @@ class nEq_NLMP(torch.nn.Module):
         self.edge_val = LinNet(3*self.irreps_input, hx*self.irreps_input, self.irreps_val, False, **kwargs)
 
         # self.tp = Linear(self.irreps_val.dim+self.irreps_fe.dim+num_fes, self.irreps_output.dim)
-        self.fc = nn.FullyConnectedNet([self.irreps_fe.dim+num_fes, hx*num_fes, self.irreps_val.dim*self.irreps_output.dim], kwargs.get('act', ReLU()))
+        self.fc = nn.FullyConnectedNet([6+num_fes, hx*num_fes, self.irreps_val.dim*self.irreps_output.dim], kwargs.get('act', ReLU()))
         # self.edge_upd = LinNet(self.irreps_output+3*self.irreps_input, hx*self.irreps_output, self.irreps_output, False, **kwargs)
 
         self.node_upd = LinNet(self.irreps_input+self.irreps_output, hx*self.irreps_output, self.irreps_output, False, **kwargs)
@@ -84,7 +84,7 @@ class nEq_NLMP(torch.nn.Module):
         v = self.edge_val(torch.cat([data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         
         # tp = self.tp(torch.cat([v, data.fe, data.fes],dim=1))
-        tp = torch.bmm(v.unsqueeze(1),self.fc(torch.cat([data.fe, data.fes],dim=1)).reshape(v.shape[0],self.irreps_val.dim,self.irreps_output.dim)).squeeze()
+        tp = torch.bmm(v.unsqueeze(1),self.fc(torch.cat([data.pos[edge_src],data.pos[edge_dst], data.fes],dim=1)).reshape(v.shape[0],self.irreps_val.dim,self.irreps_output.dim)).squeeze()
         heu = tp#self.edge_upd(torch.cat([tp,data.he,data.hn[edge_src],data.hn[edge_dst]],dim=1))
         hen = (data.he + heu) if self.residual else heu
 
