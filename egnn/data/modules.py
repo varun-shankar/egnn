@@ -70,7 +70,7 @@ class Data(pygData):
             dlist = self.to_data_list()
             for i in range(self.num_graphs):
                 subset = torch.randperm(dlist[i].num_nodes)[:num_nodes]
-                dlist[i] = dlist[i].subgraph(subset)
+                dlist[i] = dlist[i].subgraph(subset.to(self.x.device))
                 # dlist[i].edge_index = subgraph(subset, dlist[i].edge_index, relabel_nodes=True)
                 # dlist[i].pos = dlist[i].pos[subset]
                 # dlist[i].x = dlist[i].x[subset]

@@ -1,4 +1,4 @@
-import copy, math
+import copy, math, time
 import torch
 from torch.nn import Tanh, ReLU, ELU, SiLU, Sigmoid
 from e3nn import o3
@@ -50,8 +50,8 @@ class GraphNet(torch.nn.Module):
         if 'act' in kwargs:
             kwargs['act'] = ACT_DICT[kwargs['act']]
         if latent_vectors:
-            latent_scalars = int(latent_dim/4)
-            latent_vectors = int(latent_dim/4)
+            latent_scalars = int(latent_dim/2)
+            latent_vectors = int(latent_dim/2)
         else:
             latent_scalars = latent_dim
             latent_vectors = 0
@@ -151,10 +151,10 @@ class LitModel(pl.LightningModule):
             self.log('train_'+k, v, batch_size=data.num_graphs)
         return loss_dict['loss']
     
-    def training_epoch_end(self, outputs):
+    def on_train_epoch_end(self, outputs):
         L =  self.noise_fac; k = -30/self.epochs; x0 = 0.33*self.epochs
         multiplier = L/(1+math.exp(k*(self.current_epoch-x0))) if self.noise_sch else L
-        self.noise_var = multiplier #* self.var.compute()
+        self.noise_var = multiplier * (self.var.compute()!=0)
         self.log('noise_multiplier', multiplier, sync_dist=True)
 
         self.var.reset()
@@ -193,7 +193,9 @@ class LitModel(pl.LightningModule):
                 torch.save((data,y_hat),'pred.pt')
         else:
             data = batch
+            tic = time.perf_counter()
             y_hat = self(data)
+            toc = time.perf_counter(); print(toc-tic)
             loss_dict = self.loss_fn(y_hat, data)
             for k, v in loss_dict.items():
                 self.log('test_rollout_'+k, v, batch_size=data.num_graphs,

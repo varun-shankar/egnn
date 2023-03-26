@@ -8,7 +8,7 @@ from torch_geometric.nn import GCNConv
 ## Message Passing Layers ##
 class Eq_NLMP(torch.nn.Module):
     def __init__(self, irreps_input, irreps_output,
-                       irreps_val='4x0e+4x1o',
+                       irreps_val='16x0e+4x1o',
                        irreps_fe=o3.Irreps.spherical_harmonics(lmax=2),
                        num_fes=16, hx=4, residual=True, 
                        return_array=False, **kwargs):

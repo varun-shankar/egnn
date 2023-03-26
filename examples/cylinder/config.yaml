@@ -1,0 +1,36 @@
+# Init #
+project: 'egnn-model'
+job_type: 'train'
+# load_id: '9zksnqhs'
+
+# Data #
+# dir: '/ocean/projects/cts180021p/vshankar/data/marsigli/Results/'
+data_fields: 'uvp'
+num_nodes: 10000
+ts: [2,6]
+test_ts: [6,7]
+rollout: 1
+# test_rollout: 0
+rkm: [[.05,0,[8,8]], [.1,0,[8,8]], [.2,0,[8,8]]]
+
+# Model #
+num_levels: 3
+cf: [8, 8]
+skip_mp_levels_all: [[0,1],[0,2],[0,2],[1,2],[1,2],[1,2]]
+latent_layers: 6
+latent_dim: 64
+latent_vectors: False
+model_type: 'equivariant'
+act: 'silu'
+solver: 'euler'
+sensitivity: 'autograd'
+
+# Training #
+data_aug: False
+batch_size: 8
+lr: 0.0004
+lr_sch: True
+noise_fac: 0.001
+noise_sch: True
+epochs: 2000
+gpus: -1

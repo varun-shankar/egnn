@@ -13,18 +13,19 @@ config, cfg_file = load_config()
 config['dataset'] = os.path.basename(os.path.dirname(__file__))
 
 # Sweep
-wandb.init(config=SimpleNamespace(**config))
-config = wandb.config
-if config.get('model_type') == 'equivariant':
-    if config.get('latent_vectors') == True:
-        config.update({'lr': 0.0002}, allow_val_change=True)
-    else:
-        config.update({'lr': 0.0001}, allow_val_change=True)
-else:
-    config.update({'lr': 0.00001}, allow_val_change=True)
+# wandb.init(config=SimpleNamespace(**config))
+# config = wandb.config
+# if config.get('model_type') == 'equivariant':
+#     if config.get('latent_vectors') == True:
+#         config.update({'lr': 0.0002}, allow_val_change=True)
+#     else:
+#         config.update({'lr': 0.0001}, allow_val_change=True)
+# else:
+#     config.update({'lr': 0.00001}, allow_val_change=True)
 
 ### Lightning setup ###
-dm, model, ckpt, run_id = lightning_setup(config, DataModule, LitModel, run_id=wandb.run.id)
+dm, model, ckpt, run_id = lightning_setup(config, DataModule, LitModel, load_opt_state=True)#, run_id=wandb.run.id)
+run_id = wandb.util.generate_id()
 
 ### Train ###
 wandb_logger = WandbLogger(project=config.get('project'), log_model=True, 
@@ -49,7 +50,7 @@ if config.get('job_type') != 'eval':
     trainer = pl.Trainer(accelerator='gpu',
         devices=config.get('gpus'), strategy=strategy, precision=16,
         logger=wandb_logger, callbacks=callbacks, limit_test_batches=10,
-        max_epochs=config.get('epochs'), log_every_n_steps=5
+        max_epochs=config.get('epochs'), log_every_n_steps=5, accumulate_grad_batches=4
     )
     trainer.fit(model, datamodule=dm, ckpt_path=ckpt)
     if int(os.environ.get('LOCAL_RANK', 0)) == 0:
@@ -63,9 +64,9 @@ else:
     trainer.test(model, datamodule=dm)
 
 ### Plotting ###
-if int(os.environ.get('LOCAL_RANK', 0)) == 0:
-    import shutil
-    shutil.copy('pred_rollout.pt', 'preds/rollout-'+run_id+'.pt')
-    from plot import plot
-    print('Plotting...')
-    plot('pred_rollout.pt')
+# if int(os.environ.get('LOCAL_RANK', 0)) == 0:
+#     import shutil
+#     shutil.copy('pred_rollout.pt', 'preds/rollout-'+run_id+'.pt')
+#     from plot import plot
+#     print('Plotting...')
+#     plot('pred_rollout.pt')
