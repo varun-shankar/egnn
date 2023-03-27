@@ -5,9 +5,9 @@ job_type: 'train'
 
 # Data #
 # dir: '/ocean/projects/cts180021p/vshankar/data/marsigli/Results/'
-data_fields: 'uvp'
+data_fields: 'wsp'
 num_nodes: 10000
-ts: [2,6]
+ts: [3,6]
 test_ts: [6,7]
 rollout: 1
 # test_rollout: 0
@@ -30,7 +30,7 @@ data_aug: False
 batch_size: 8
 lr: 0.0004
 lr_sch: True
-noise_fac: 0.001
+noise_fac: 0.01
 noise_sch: True
 epochs: 2000
 gpus: -1

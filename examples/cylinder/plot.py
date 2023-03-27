@@ -8,23 +8,23 @@ from egnn.data.modules import Data
 from scipy.interpolate import griddata
 
 def plot(filename):
-    data, pred = torch.load('pred_rollout.pt', map_location=torch.device('cpu'))
+    data, pred = torch.load(filename, map_location=torch.device('cpu'))
     data.y = data.y.transpose(0,1)
     print(torch.nn.functional.mse_loss(data.y,pred).item())
     inds = torch.isclose(data.pos[:,2],data.pos[:,2].mean(),rtol=1e-2)
     pos = data.pos[inds,:]
     pos = pos[:,0:2]
 
-    x = np.sum(data.x.detach().numpy()[inds,:1]**2,axis=-1)**.5
-    y = np.sum(data.y.detach().numpy()[:,inds,:1]**2,axis=-1)**.5
-    p = np.sum(pred.detach().numpy()[:,inds,:1]**2,axis=-1)**.5
+    x = np.sum(data.x.detach().numpy()[inds,-1:]**1,axis=-1)**1
+    y = np.sum(data.y.detach().numpy()[:,inds,-1:]**1,axis=-1)**1
+    p = np.sum(pred.detach().numpy()[:,inds,-1:]**1,axis=-1)**1
 
     fig, axs = plt.subplots(5, figsize=(19,18))
     ext = [pos[:,0].min().item(),pos[:,0].max().item(),
         pos[:,1].min().item(),pos[:,1].max().item()]
     step = (ext[1] - ext[0])/1e3
     grid_x, grid_y = np.mgrid[ext[0]:ext[1]:step, ext[2]:ext[3]:step]
-    ims = [axs[i].imshow(np.random.random(grid_x.T.shape), extent=ext, vmin=0, vmax=y.max(),origin='lower') for i in range(4)]
+    ims = [axs[i].imshow(np.random.random(grid_x.T.shape), extent=ext, vmin=0, vmax=0.5*y.max(),origin='lower') for i in range(4)]
     ims.append(axs[4].imshow(np.random.random(grid_x.T.shape), extent=ext, vmin=0, vmax=((y-p)**2).max(), cmap='Greys_r',origin='lower'))
     for i in range(5):
         fig.colorbar(ims[i], ax=axs[i])

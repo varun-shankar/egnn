@@ -11,23 +11,37 @@ from egnn.data.modules import *
 from torch_geometric.loader import DataLoader
 import pytorch_lightning as pl
 import fluidfoam as ff
+import pyvista as pv
 import sys
 
 class Suppressor(object):
     def __enter__(self):
         self.stdout = sys.stdout
+        self.stderr = sys.stderr
         sys.stdout = self
+        sys.stderr = self
     def __exit__(self, type, value, traceback):
         sys.stdout = self.stdout
+        sys.stderr = self.stderr
         if type is not None:
             raise
     def write(self, x): pass
 
 def read_field_snap(dir,t,f,b,numpts):
     tstr = f'{t:g}'
-    v = torch.tensor(ff.readfield(dir,tstr,f,boundary=b)).float()
+    if f=='streamFunction':
+        if b is None:
+            mesh = pv.read(dir+'/VTK/cylinder2D_base_'+tstr+'/internal.vtu')
+            v = torch.tensor(mesh.point_data_to_cell_data()['streamFunction'])
+        else:
+            mesh = pv.read(dir+'/VTK/cylinder2D_base_'+tstr+'/boundary/'+b+'.vtp')
+            v = torch.tensor(mesh.point_data_to_cell_data()['streamFunction'])
+    else:
+        v = torch.tensor(ff.readfield(dir,tstr,f,boundary=b)).float()
     v = v.t() if v.dim() == 2 else v.unsqueeze(-1)
     v = v.repeat(numpts,1) if v.shape[0] == 1 else v
+    if f=='vorticity':
+        v = v[:,~torch.isclose(v.abs().sum(dim=0),torch.tensor(0.))]
     return v
 
 def read_mesh_and_field(dir,b,df,ts):
@@ -119,9 +133,9 @@ class DataModule(pl.LightningDataModule):
             v = torch.cat(v,dim=1)
 
             # Normalization
-            um = v[:,:,1:].norm(dim=-1).mean()
-            v[:,:,:1] /= um**2
-            v[:,:,1:] /= um
+            # um = v[:,:,1:].norm(dim=-1).mean()
+            # v[:,:,:1] /= um**2
+            # v[:,:,1:] /= um
             v = mult(1/n(v).amax(dim=(0,1),keepdim=True),v)
 
             # Generate graph
